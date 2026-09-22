@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""ocmux-refresh — re-establish ocmux server panes after a network change.
+
+Finds every surface tagged by `ocmux-open` (cmux's own per-surface resume
+binding) and respawns it with the same command, so each pane re-runs its alias
+and lands back in its tmux session.
+
+Panes with no ocmux tag -- plain shells, editors, agents -- are never touched.
+
+  ocmux-refresh              refresh every tagged pane
+  ocmux-refresh --dry-run    show what would be refreshed
+  ocmux-refresh --surface surface:11
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+TAG_PREFIX = "ocmux-open "
+
+
+def cmux_bin() -> str:
+    return os.environ.get("CMUX_BUNDLED_CLI_PATH") or shutil.which("cmux") or "cmux"
+
+
+def run(args: list[str]) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [cmux_bin(), *args], capture_output=True, text=True, check=False
+    )
+
+
+def tagged_surfaces() -> list[dict]:
+    """Surfaces carrying an ocmux tag, as {ref, command, title}."""
+    proc = run(["rpc", "surface.list"])
+    if proc.returncode != 0:
+        sys.exit(f"ocmux-refresh: cmux rpc surface.list failed: {proc.stderr.strip()}")
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        sys.exit(f"ocmux-refresh: could not parse surface.list: {exc}")
+
+    found = []
+    for surface in payload.get("surfaces", []):
+        binding = surface.get("resume_binding") or {}
+        command = binding.get("command") or ""
+        if not command.startswith(TAG_PREFIX):
+            continue
+        found.append(
+            {
+                "ref": surface.get("ref"),
+                "command": command,
+                "title": surface.get("title") or "",
+            }
+        )
+    return found
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="ocmux-refresh", add_help=True)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--surface", help="refresh only this surface ref/id")
+    args = parser.parse_args()
+
+    targets = tagged_surfaces()
+    if args.surface:
+        targets = [t for t in targets if t["ref"] == args.surface]
+        if not targets:
+            sys.exit(f"ocmux-refresh: {args.surface} carries no ocmux tag")
+
+    if not targets:
+        print("ocmux-refresh: no tagged panes found "
+              "(open them from the + menu, or via `ocmux-open <alias>`)")
+        return 0
+
+    failures = 0
+    for target in targets:
+        alias = target["command"][len(TAG_PREFIX):].strip()
+        if args.dry_run:
+            print(f"  would refresh {target['ref']:<12} {alias}")
+            continue
+        proc = run(["respawn-pane", "--surface", target["ref"],
+                    "--command", target["command"]])
+        if proc.returncode == 0:
+            print(f"  refreshed {target['ref']:<12} {alias}")
+        else:
+            failures += 1
+            print(f"  FAILED    {target['ref']:<12} {alias}: "
+                  f"{proc.stderr.strip() or proc.stdout.strip()}", file=sys.stderr)
+
+    if args.dry_run:
+        print(f"\n{len(targets)} pane(s) would be refreshed.")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

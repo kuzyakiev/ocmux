@@ -1,0 +1,22 @@
+// ocmux server registry — the single source of truth for the "+" alias picker
+// and for `ocmux-refresh`.
+//
+//   alias : the zsh alias/function to run (must resolve in an interactive zsh)
+//   label : what shows in the + menu
+//   group : used only to order/sepatate menu sections
+//
+// After editing, run:  ocmux-sync-config
+// then in cmux:        Cmd+Shift+,   (reload configuration)
+[
+  { "alias": "h1t",    "label": "H1 · agent-1",  "group": "H1" },
+  { "alias": "a2h1t",  "label": "H1 · agent-2",  "group": "H1" },
+  { "alias": "poh1t",  "label": "H1 · popy",     "group": "H1" },
+
+  { "alias": "h2t",    "label": "H2 · agent-1",  "group": "H2" },
+  { "alias": "a2h2t",  "label": "H2 · agent-2",  "group": "H2" },
+  { "alias": "poh2t",  "label": "H2 · popy",     "group": "H2" },
+
+  { "alias": "h3t",    "label": "H3 · agent-1",  "group": "H3" },
+  { "alias": "a2h3t",  "label": "H3 · agent-2",  "group": "H3" },
+  { "alias": "poh3t",  "label": "H3 · popy",     "group": "H3" }
+]

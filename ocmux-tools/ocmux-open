@@ -1,0 +1,29 @@
+#!/bin/zsh
+# ocmux-open <alias> — open a server pane and tag it so ocmux-refresh can replay it.
+#
+# Runs in the pane's LOCAL shell (before ssh takes over), so CMUX_SURFACE_ID is
+# still the identity of this surface. The tag is stored as cmux's own per-surface
+# resume binding, which survives until the surface is closed.
+emulate -L zsh
+set -u
+
+if (( $# < 1 )); then
+  print -u2 "usage: ocmux-open <alias>"
+  exit 2
+fi
+alias_name=$1
+
+cmux=${CMUX_BUNDLED_CLI_PATH:-cmux}
+
+if [[ -n ${CMUX_SURFACE_ID:-} ]]; then
+  # Tag this surface. `ocmux-refresh` replays exactly this command, so the tag
+  # is self-reproducing across any number of refreshes.
+  "$cmux" surface resume set \
+      --surface "$CMUX_SURFACE_ID" \
+      --shell "ocmux-open ${alias_name}" >/dev/null 2>&1 \
+    || print -u2 "ocmux-open: warning: could not tag surface (refresh-all will skip this pane)"
+fi
+
+# Hand the pane to the alias. `-i` so ~/.zshrc aliases/functions resolve; exec so
+# no extra shell layer sits between cmux and ssh.
+exec zsh -ic "${alias_name}"

@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""ocmux-sync-config — render servers.jsonc into ~/.config/cmux/cmux.json.
+
+Writes one delimited block. Re-running replaces only that block, so anything you
+hand-edit elsewhere in cmux.json is left alone. Always takes a .bak first.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import sys
+from datetime import datetime
+from pathlib import Path
+
+BEGIN = "  // >>> ocmux managed block — regenerate with `ocmux-sync-config` >>>"
+END = "  // <<< ocmux managed block <<<"
+
+REGISTRY = Path(os.path.expanduser("~/.config/ocmux/servers.jsonc"))
+CMUX_JSON = Path(os.path.expanduser("~/.config/cmux/cmux.json"))
+
+
+def strip_jsonc(text: str) -> str:
+    text = re.sub(r"^\s*//.*$", "", text, flags=re.M)
+    text = re.sub(r",(\s*[}\]])", r"\1", text)
+    return text
+
+
+def load_registry() -> list[dict]:
+    if not REGISTRY.exists():
+        sys.exit(f"ocmux-sync-config: registry not found: {REGISTRY}")
+    entries = json.loads(strip_jsonc(REGISTRY.read_text()))
+    for entry in entries:
+        if "alias" not in entry:
+            sys.exit(f"ocmux-sync-config: registry entry missing 'alias': {entry}")
+    return entries
+
+
+def render_block(entries: list[dict]) -> str:
+    actions: dict[str, dict] = {}
+    menu: list[dict | str] = []
+    last_group = None
+    for entry in entries:
+        alias = entry["alias"]
+        action_id = f"ocmux.{alias}"
+        group = entry.get("group")
+        if last_group is not None and group != last_group:
+            menu.append("separator")
+        last_group = group
+        actions[action_id] = {
+            "type": "command",
+            "command": f"ocmux-open {alias}",
+            "title": entry.get("label", alias),
+            "target": "newTabInCurrentPane",
+            "newWorkspaceMenu": True,
+            "palette": True,
+            "keywords": ["ocmux", "server", alias],
+        }
+        menu.append({"action": action_id})
+
+    payload = {
+        "actions": actions,
+        "ui": {"newWorkspace": {"contextMenu": menu}},
+    }
+    body = json.dumps(payload, indent=2)[1:-1].rstrip()  # drop outer braces
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+    return f"{BEGIN}\n  // generated {stamp} from {REGISTRY}\n{body},\n{END}"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="ocmux-sync-config")
+    parser.add_argument("--dry-run", action="store_true")
+    args = parser.parse_args()
+
+    entries = load_registry()
+    block = render_block(entries)
+
+    if not CMUX_JSON.exists():
+        sys.exit(f"ocmux-sync-config: {CMUX_JSON} not found")
+    original = CMUX_JSON.read_text()
+
+    if BEGIN in original:
+        start = original.index(BEGIN)
+        finish = original.index(END) + len(END)
+        updated = original[:start] + block + original[finish:]
+    else:
+        # Insert just before the final closing brace.
+        brace = original.rstrip().rfind("}")
+        if brace < 0:
+            sys.exit("ocmux-sync-config: cmux.json has no closing brace")
+        head = original[:brace].rstrip()
+        if not head.endswith("{") and not head.endswith(","):
+            head += ","
+        updated = f"{head}\n\n{block}\n}}\n"
+        for key in ('"actions"', '"ui"'):
+            if re.search(rf"^\s*{key}\s*:", original, flags=re.M):
+                print(f"ocmux-sync-config: WARNING: {key} already present outside the "
+                      f"managed block — cmux will see a duplicate key.", file=sys.stderr)
+
+    if args.dry_run:
+        print(block)
+        print(f"\n({len(entries)} aliases; --dry-run, {CMUX_JSON} untouched)")
+        return 0
+
+    backup = CMUX_JSON.with_suffix(f".json.bak-{datetime.now():%y%m%d-%H%M%S}")
+    shutil.copy2(CMUX_JSON, backup)
+    CMUX_JSON.write_text(updated)
+    print(f"wrote {len(entries)} aliases into {CMUX_JSON}")
+    print(f"backup: {backup}")
+    print("reload cmux config with Cmd+Shift+, (or `cmux reload-config`)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
