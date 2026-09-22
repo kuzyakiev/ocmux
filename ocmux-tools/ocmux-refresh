@@ -2,25 +2,55 @@
 """ocmux-refresh — re-establish ocmux server panes after a network change.
 
 Finds every surface tagged by `ocmux-open` (cmux's own per-surface resume
-binding) and respawns it with the same command, so each pane re-runs its alias
-and lands back in its tmux session.
+binding) and replays its command, so each pane re-runs its alias and lands back
+in its tmux session.
 
 Panes with no ocmux tag -- plain shells, editors, agents -- are never touched.
 
   ocmux-refresh              refresh every tagged pane
   ocmux-refresh --dry-run    show what would be refreshed
   ocmux-refresh --surface surface:11
+  ocmux-refresh --force      refresh even panes that still have a live command
+
+How the pieces fit, and why it is written this way:
+
+* `cmux rpc surface.list` only ever reports the *currently selected*
+  workspace, so it cannot be used to find tagged panes: the whole point is to
+  refresh server panes that live in other workspaces. Enumeration therefore
+  goes through `cmux rpc system.tree {"all": true}` (every window, every
+  workspace) and the per-surface binding is read with
+  `cmux surface resume get --json`.
+
+* Every surface-addressing CLI call passes `--workspace` explicitly. Without
+  it cmux resolves `--surface` inside `$CMUX_WORKSPACE_ID` (the *caller's*
+  workspace), and a surface from any other workspace fails with
+  "invalid_params: Surface is not a terminal".
+
+* `cmux respawn-pane --command` does not restart the pane process in the
+  shipping CLI ("Send a command (or default shell restart command) to a
+  surface"): it writes the command text into whatever is already running on
+  that tty. That is exactly right for a pane whose ssh has died -- it lands on
+  the local prompt and re-runs the alias -- and exactly wrong for a pane whose
+  ssh/tmux is still alive, where it would be typed straight into the remote
+  session. So a pane whose tty still has a live foreground command is skipped
+  unless `--force` is given.
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 
 TAG_PREFIX = "ocmux-open "
+
+# Foreground commands that mean "this pane is sitting at a prompt".
+IDLE_FOREGROUND = re.compile(
+    r"^-?(?:/(?:usr/)?bin/)?(?:zsh|bash|sh|fish|login)\b"
+)
 
 
 def cmux_bin() -> str:
@@ -33,29 +63,93 @@ def run(args: list[str]) -> subprocess.CompletedProcess:
     )
 
 
-def tagged_surfaces() -> list[dict]:
-    """Surfaces carrying an ocmux tag, as {ref, command, title}."""
-    proc = run(["rpc", "surface.list"])
+def run_json(args: list[str], what: str) -> dict:
+    proc = run(args)
     if proc.returncode != 0:
-        sys.exit(f"ocmux-refresh: cmux rpc surface.list failed: {proc.stderr.strip()}")
+        sys.exit(f"ocmux-refresh: cmux {what} failed: {proc.stderr.strip()}")
+    try:
+        return json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        sys.exit(f"ocmux-refresh: could not parse {what}: {exc}")
+
+
+def all_surfaces() -> list[dict]:
+    """Every terminal surface in every window/workspace, newest cmux first.
+
+    `surface.list` is scoped to the selected workspace; `system.tree` is not.
+    """
+    payload = run_json(["rpc", "system.tree", '{"all": true}'], "rpc system.tree")
+    found: list[dict] = []
+    for window in payload.get("windows") or []:
+        for workspace in window.get("workspaces") or []:
+            for pane in workspace.get("panes") or []:
+                for surface in pane.get("surfaces") or []:
+                    if surface.get("type") not in (None, "terminal"):
+                        continue
+                    found.append(
+                        {
+                            "id": surface.get("id"),
+                            "ref": surface.get("ref"),
+                            "title": surface.get("title") or "",
+                            "tty": surface.get("tty"),
+                            "workspace_ref": workspace.get("ref"),
+                            "workspace_title": workspace.get("title") or "",
+                        }
+                    )
+    return found
+
+
+def resume_command(surface: dict) -> str:
+    """The surface's resume binding command, or "" when it carries none."""
+    args = ["surface", "resume", "get", "--json", "--surface", surface["id"]]
+    if surface.get("workspace_ref"):
+        args += ["--workspace", surface["workspace_ref"]]
+    proc = run(args)
+    if proc.returncode != 0:
+        return ""
     try:
         payload = json.loads(proc.stdout)
-    except json.JSONDecodeError as exc:
-        sys.exit(f"ocmux-refresh: could not parse surface.list: {exc}")
+    except json.JSONDecodeError:
+        return ""
+    binding = payload.get("resume_binding") or {}
+    return binding.get("command") or ""
 
+
+def foreground_command(tty: str | None) -> str | None:
+    """The non-shell command holding the tty's foreground group, if any."""
+    if not tty:
+        return None
+    proc = subprocess.run(
+        ["ps", "-t", tty, "-o", "stat=", "-o", "command="],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    for line in proc.stdout.splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) != 2:
+            continue
+        stat, command = parts
+        if "+" not in stat:
+            continue
+        if IDLE_FOREGROUND.match(command):
+            continue
+        return command
+    return None
+
+
+def tagged_surfaces() -> list[dict]:
+    """Surfaces carrying an ocmux tag, with their replay command."""
     found = []
-    for surface in payload.get("surfaces", []):
-        binding = surface.get("resume_binding") or {}
-        command = binding.get("command") or ""
+    for surface in all_surfaces():
+        command = resume_command(surface)
         if not command.startswith(TAG_PREFIX):
             continue
-        found.append(
-            {
-                "ref": surface.get("ref"),
-                "command": command,
-                "title": surface.get("title") or "",
-            }
-        )
+        surface["command"] = command
+        surface["busy"] = foreground_command(surface.get("tty"))
+        found.append(surface)
     return found
 
 
@@ -63,11 +157,20 @@ def main() -> int:
     parser = argparse.ArgumentParser(prog="ocmux-refresh", add_help=True)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--surface", help="refresh only this surface ref/id")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="refresh even panes whose ssh/tmux is still running",
+    )
     args = parser.parse_args()
 
     targets = tagged_surfaces()
     if args.surface:
-        targets = [t for t in targets if t["ref"] == args.surface]
+        wanted = args.surface.lower()
+        targets = [
+            t for t in targets
+            if (t["ref"] or "").lower() == wanted or (t["id"] or "").lower() == wanted
+        ]
         if not targets:
             sys.exit(f"ocmux-refresh: {args.surface} carries no ocmux tag")
 
@@ -77,22 +180,34 @@ def main() -> int:
         return 0
 
     failures = 0
+    skipped = 0
+    refreshed = 0
     for target in targets:
         alias = target["command"][len(TAG_PREFIX):].strip()
-        if args.dry_run:
-            print(f"  would refresh {target['ref']:<12} {alias}")
+        label = f"{target['ref']:<12} {target['workspace_ref']:<13} {alias}"
+        if target["busy"] and not args.force:
+            skipped += 1
+            print(f"  skipped   {label}: still running "
+                  f"{target['busy'].split()[0]} (use --force)")
             continue
-        proc = run(["respawn-pane", "--surface", target["ref"],
+        if args.dry_run:
+            refreshed += 1
+            print(f"  would refresh {label}")
+            continue
+        proc = run(["respawn-pane",
+                    "--surface", target["id"],
+                    "--workspace", target["workspace_ref"],
                     "--command", target["command"]])
         if proc.returncode == 0:
-            print(f"  refreshed {target['ref']:<12} {alias}")
+            refreshed += 1
+            print(f"  refreshed {label}")
         else:
             failures += 1
-            print(f"  FAILED    {target['ref']:<12} {alias}: "
+            print(f"  FAILED    {label}: "
                   f"{proc.stderr.strip() or proc.stdout.strip()}", file=sys.stderr)
 
     if args.dry_run:
-        print(f"\n{len(targets)} pane(s) would be refreshed.")
+        print(f"\n{refreshed} pane(s) would be refreshed, {skipped} skipped.")
     return 1 if failures else 0
 
 

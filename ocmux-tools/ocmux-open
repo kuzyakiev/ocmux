@@ -7,20 +7,34 @@
 emulate -L zsh
 set -u
 
-if (( $# < 1 )); then
+if (( $# != 1 )); then
   print -u2 "usage: ocmux-open <alias>"
   exit 2
 fi
 alias_name=$1
 
+# The tag is stored, and later replayed, as the single string
+# "ocmux-open <alias>" — `ocmux-refresh` splits it back on that prefix. Anything
+# with whitespace or shell metacharacters would not survive that round trip
+# (and would be re-expanded by the `zsh -ic` below), so reject it here rather
+# than silently truncate.
+if [[ ! $alias_name =~ '^[A-Za-z0-9][A-Za-z0-9._-]*$' ]]; then
+  print -u2 "ocmux-open: invalid alias '${alias_name}' (expected [A-Za-z0-9][A-Za-z0-9._-]*)"
+  exit 2
+fi
+
 cmux=${CMUX_BUNDLED_CLI_PATH:-cmux}
 
 if [[ -n ${CMUX_SURFACE_ID:-} ]]; then
   # Tag this surface. `ocmux-refresh` replays exactly this command, so the tag
-  # is self-reproducing across any number of refreshes.
-  "$cmux" surface resume set \
-      --surface "$CMUX_SURFACE_ID" \
-      --shell "ocmux-open ${alias_name}" >/dev/null 2>&1 \
+  # is self-reproducing across any number of refreshes. --workspace is passed
+  # so the surface resolves even when the pane's workspace is not the selected
+  # one; CMUX_WORKSPACE_ID is this pane's own workspace.
+  resume_args=(surface resume set --surface "$CMUX_SURFACE_ID" --shell "ocmux-open ${alias_name}")
+  if [[ -n ${CMUX_WORKSPACE_ID:-} ]]; then
+    resume_args+=(--workspace "$CMUX_WORKSPACE_ID")
+  fi
+  "$cmux" "${resume_args[@]}" >/dev/null 2>&1 \
     || print -u2 "ocmux-open: warning: could not tag surface (refresh-all will skip this pane)"
 fi
 

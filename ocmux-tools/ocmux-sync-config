@@ -3,6 +3,19 @@
 
 Writes one delimited block. Re-running replaces only that block, so anything you
 hand-edit elsewhere in cmux.json is left alone. Always takes a .bak first.
+
+Two things about the rendered block are load-bearing:
+
+* `ui.newWorkspace.contextMenu` REPLACES cmux's built-in plus-button menu
+  rather than extending it (`configuredNewWorkspaceContextMenu ?? defaults` in
+  CmuxConfigStore). Writing only the ocmux rows therefore deletes "New
+  Workspace" and friends from the + menu, so the built-in rows are emitted
+  first, followed by a separator.
+
+* `newWorkspaceMenu` is only honoured by newer cmux builds; the key is simply
+  ignored by builds that predate it (unknown keys are not decoded, not
+  rejected), and the contextMenu list above is what actually populates the
+  menu either way.
 """
 from __future__ import annotations
 
@@ -21,32 +34,123 @@ END = "  // <<< ocmux managed block <<<"
 REGISTRY = Path(os.path.expanduser("~/.config/ocmux/servers.jsonc"))
 CMUX_JSON = Path(os.path.expanduser("~/.config/cmux/cmux.json"))
 
+# cmux's own plus-button rows, kept ahead of the ocmux aliases so configuring
+# the context menu does not amputate them.
+BUILTIN_MENU_ACTIONS = ["cmux.newWorkspace", "cmux.newTerminal"]
+
+ALIAS_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
 
 def strip_jsonc(text: str) -> str:
-    text = re.sub(r"^\s*//.*$", "", text, flags=re.M)
-    text = re.sub(r",(\s*[}\]])", r"\1", text)
-    return text
+    """Remove // and /* */ comments and trailing commas, string-aware.
+
+    A naive line regex would eat a `//` inside a quoted label and a naive
+    `,\\s*[}\\]]` would eat one inside a string, so both passes track quoting.
+    """
+    out: list[str] = []
+    i, n = 0, len(text)
+    in_string = escaped = False
+    while i < n:
+        ch = text[i]
+        if in_string:
+            out.append(ch)
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+        if ch == '"':
+            in_string = True
+            out.append(ch)
+            i += 1
+            continue
+        if ch == "/" and i + 1 < n and text[i + 1] == "/":
+            while i < n and text[i] not in "\r\n":
+                i += 1
+            continue
+        if ch == "/" and i + 1 < n and text[i + 1] == "*":
+            i += 2
+            while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
+                i += 1
+            i += 2
+            continue
+        out.append(ch)
+        i += 1
+    stripped = "".join(out)
+
+    result: list[str] = []
+    i, n = 0, len(stripped)
+    in_string = escaped = False
+    while i < n:
+        ch = stripped[i]
+        if in_string:
+            result.append(ch)
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            i += 1
+            continue
+        if ch == '"':
+            in_string = True
+            result.append(ch)
+            i += 1
+            continue
+        if ch == ",":
+            j = i + 1
+            while j < n and stripped[j].isspace():
+                j += 1
+            if j < n and stripped[j] in "}]":
+                i += 1
+                continue
+        result.append(ch)
+        i += 1
+    return "".join(result)
 
 
 def load_registry() -> list[dict]:
     if not REGISTRY.exists():
         sys.exit(f"ocmux-sync-config: registry not found: {REGISTRY}")
-    entries = json.loads(strip_jsonc(REGISTRY.read_text()))
+    try:
+        entries = json.loads(strip_jsonc(REGISTRY.read_text()))
+    except json.JSONDecodeError as exc:
+        sys.exit(f"ocmux-sync-config: {REGISTRY} is not valid JSONC: {exc}")
+    if not isinstance(entries, list):
+        sys.exit(f"ocmux-sync-config: {REGISTRY} must hold a JSON array")
+    seen: set[str] = set()
     for entry in entries:
-        if "alias" not in entry:
+        if not isinstance(entry, dict) or "alias" not in entry:
             sys.exit(f"ocmux-sync-config: registry entry missing 'alias': {entry}")
+        alias = entry["alias"]
+        # The alias travels through the resume tag as the bare string
+        # "ocmux-open <alias>" and is re-split on that prefix by
+        # ocmux-refresh, so it has to be one metacharacter-free token.
+        if not isinstance(alias, str) or not ALIAS_RE.match(alias):
+            sys.exit(f"ocmux-sync-config: invalid alias {alias!r} "
+                     "(expected [A-Za-z0-9][A-Za-z0-9._-]*)")
+        if alias in seen:
+            sys.exit(f"ocmux-sync-config: duplicate alias {alias!r} "
+                     "(action ids would collide)")
+        seen.add(alias)
     return entries
 
 
 def render_block(entries: list[dict]) -> str:
     actions: dict[str, dict] = {}
-    menu: list[dict | str] = []
+    menu: list[dict | str] = [{"action": action} for action in BUILTIN_MENU_ACTIONS]
+    if menu:
+        menu.append("separator")
     last_group = None
-    for entry in entries:
+    for index, entry in enumerate(entries):
         alias = entry["alias"]
         action_id = f"ocmux.{alias}"
         group = entry.get("group")
-        if last_group is not None and group != last_group:
+        if index and group != last_group:
             menu.append("separator")
         last_group = group
         actions[action_id] = {
@@ -64,9 +168,16 @@ def render_block(entries: list[dict]) -> str:
         "actions": actions,
         "ui": {"newWorkspace": {"contextMenu": menu}},
     }
-    body = json.dumps(payload, indent=2)[1:-1].rstrip()  # drop outer braces
+    body = json.dumps(payload, indent=2, ensure_ascii=False)[1:-1].rstrip()
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     return f"{BEGIN}\n  // generated {stamp} from {REGISTRY}\n{body},\n{END}"
+
+
+def warn_about_duplicate_keys(outside_block: str) -> None:
+    for key in ('"actions"', '"ui"'):
+        if re.search(rf"^\s*{key}\s*:", strip_jsonc(outside_block), flags=re.M):
+            print(f"ocmux-sync-config: WARNING: {key} already present outside the "
+                  f"managed block — cmux will see a duplicate key.", file=sys.stderr)
 
 
 def main() -> int:
@@ -84,6 +195,7 @@ def main() -> int:
     if BEGIN in original:
         start = original.index(BEGIN)
         finish = original.index(END) + len(END)
+        warn_about_duplicate_keys(original[:start] + original[finish:])
         updated = original[:start] + block + original[finish:]
     else:
         # Insert just before the final closing brace.
@@ -91,13 +203,14 @@ def main() -> int:
         if brace < 0:
             sys.exit("ocmux-sync-config: cmux.json has no closing brace")
         head = original[:brace].rstrip()
-        if not head.endswith("{") and not head.endswith(","):
-            head += ","
-        updated = f"{head}\n\n{block}\n}}\n"
-        for key in ('"actions"', '"ui"'):
-            if re.search(rf"^\s*{key}\s*:", original, flags=re.M):
-                print(f"ocmux-sync-config: WARNING: {key} already present outside the "
-                      f"managed block — cmux will see a duplicate key.", file=sys.stderr)
+        warn_about_duplicate_keys(head)
+        # Whether a separating comma is needed depends on the last *code*
+        # character, not the last character of the file: cmux.json ships as a
+        # wall of commented-out defaults, so `head` routinely ends inside a
+        # `// ... },` comment that contributes no comma to the JSON.
+        code = strip_jsonc(head).rstrip()
+        separator = "" if (not code or code.endswith(("{", ","))) else "\n  ,"
+        updated = f"{head}{separator}\n\n{block}\n}}\n"
 
     if args.dry_run:
         print(block)
