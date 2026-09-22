@@ -1190,6 +1190,26 @@ struct TitlebarControlsView: View {
             TitlebarControlButton(
                 config: config,
                 foregroundColor: foregroundColor,
+                accessibilityIdentifier: "titlebarControl.ocmuxRefreshAll",
+                accessibilityLabel: String(localized: "titlebar.ocmuxRefreshAll.accessibilityLabel", defaultValue: "Refresh ocmux Panes"),
+                action: {
+                #if DEBUG
+                cmuxDebugLog("titlebar.ocmuxRefreshAll")
+                #endif
+                _ = AppDelegate.shared?.ocmuxRefreshAllTaggedSurfaces()
+            }) {
+                iconLabel(
+                    systemName: "arrow.clockwise",
+                    config: config,
+                    foregroundColor: foregroundColor,
+                    iconGeometryKeyPrefix: "titlebarControl_ocmuxRefreshAllIcon"
+                )
+            }
+            .safeHelp(String(localized: "titlebar.ocmuxRefreshAll.tooltip", defaultValue: "Refresh every ocmux server pane"))
+
+            TitlebarControlButton(
+                config: config,
+                foregroundColor: foregroundColor,
                 accessibilityIdentifier: "titlebarControl.focusHistoryBack",
                 accessibilityLabel: String(localized: "menu.history.focusBack", defaultValue: "Focus Back"),
                 action: onFocusHistoryBack,
@@ -1634,6 +1654,8 @@ struct HiddenTitlebarSidebarControlsView: View {
                         anchorView: anchorView,
                         debugSource: "titlebar.minimalSidebar.newWorkspaceMenu"
                     )
+                case .ocmuxRefreshAll:
+                    _ = AppDelegate.shared?.ocmuxRefreshAllTaggedSurfaces()
                 case .focusHistoryBack:
                     let availability = focusHistoryNavigationAvailability(
                         preferredWindow: hostWindowForFocusHistoryNavigation

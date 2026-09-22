@@ -370,6 +370,8 @@ final class WindowDecorationsController {
                         debugSource: "titlebar.minimalSidebarControl.newWorkspaceMenu"
                     )
                 }
+            case .ocmuxRefreshAll:
+                _ = appDelegate.ocmuxRefreshAllTaggedSurfaces()
             case .focusHistoryBack:
                 guard context.tabManager.canNavigateBack else { return }
                 context.tabManager.navigateBack()

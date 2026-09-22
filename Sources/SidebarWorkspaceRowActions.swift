@@ -15,6 +15,8 @@ struct SidebarWorkspaceRowActions {
     let clearCustomDescription: () -> Void
     let editDescription: () -> Void
     let closeWorkspace: () -> Void
+    /// Respawns this row's ocmux-tagged server panes (see ``OcmuxRefresh``).
+    let refreshOcmuxPanes: () -> Void
     let moveBy: (Int) -> Void
     let moveTargetsToTop: ([UUID]) -> Void
     /// Resolves volatile app-window topology when the deferred menu is presented.

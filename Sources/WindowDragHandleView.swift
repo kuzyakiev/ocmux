@@ -814,6 +814,7 @@ enum MinimalModeSidebarControlActionSlot: Int, CaseIterable {
     case showNotifications
     case newTab
     case newWorkspaceMenu
+    case ocmuxRefreshAll
     case focusHistoryBack
     case focusHistoryForward
 
@@ -827,6 +828,8 @@ enum MinimalModeSidebarControlActionSlot: Int, CaseIterable {
             return "titlebarControl.newTab"
         case .newWorkspaceMenu:
             return "titlebarControl.newWorkspaceMenu"
+        case .ocmuxRefreshAll:
+            return "titlebarControl.ocmuxRefreshAll"
         case .focusHistoryBack:
             return "titlebarControl.focusHistoryBack"
         case .focusHistoryForward:
@@ -844,6 +847,8 @@ enum MinimalModeSidebarControlActionSlot: Int, CaseIterable {
             return String(localized: "titlebar.newWorkspace.accessibilityLabel", defaultValue: "New Workspace")
         case .newWorkspaceMenu:
             return String(localized: "titlebar.newWorkspace.menu.accessibilityLabel", defaultValue: "New Workspace Menu")
+        case .ocmuxRefreshAll:
+            return String(localized: "titlebar.ocmuxRefreshAll.accessibilityLabel", defaultValue: "Refresh ocmux Panes")
         case .focusHistoryBack:
             return String(localized: "menu.history.focusBack", defaultValue: "Focus Back")
         case .focusHistoryForward:
@@ -861,6 +866,8 @@ enum MinimalModeSidebarControlActionSlot: Int, CaseIterable {
             return "newTab"
         case .newWorkspaceMenu:
             return "newWorkspaceMenu"
+        case .ocmuxRefreshAll:
+            return "ocmuxRefreshAll"
         case .focusHistoryBack:
             return "focusHistoryBack"
         case .focusHistoryForward:
@@ -872,7 +879,7 @@ enum MinimalModeSidebarControlActionSlot: Int, CaseIterable {
         switch self {
         case .toggleSidebar, .newTab, .newWorkspaceMenu, .focusHistoryBack, .focusHistoryForward:
             return true
-        case .showNotifications:
+        case .ocmuxRefreshAll, .showNotifications:
             return false
         }
     }

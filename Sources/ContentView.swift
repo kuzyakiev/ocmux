@@ -15120,6 +15120,9 @@ struct VerticalTabsSidebar: View, Equatable {
                 guard let tab = workspace() else { return }
                 tabManager.closeWorkspaceFromTabCloseButton(tab)
             },
+            refreshOcmuxPanes: {
+                _ = AppDelegate.shared?.ocmuxRefreshTaggedSurfaces(workspaceId: tabId)
+            },
             moveBy: { delta in
                 guard let tab = workspace() else { return }
                 moveWorkspaceRow(tab, by: delta)
@@ -16004,6 +16007,14 @@ struct TabItemView: View, Equatable {
             && !(showsModifierShortcutHints || alwaysShowShortcutHints)
     }
 
+    /// The per-row ⟳ affordance rides the same hover gate as the close button,
+    /// so a resting row keeps its exact layout.
+    private var showOcmuxRefreshButton: Bool {
+        isPointerHovering
+            && !contextMenuVisible
+            && !(showsModifierShortcutHints || alwaysShowShortcutHints)
+    }
+
     private var workspaceShortcutLabel: String? {
         guard let workspaceShortcutDigit else { return nil }
         return "\(workspaceShortcutModifierSymbol)\(workspaceShortcutDigit)"
@@ -16089,6 +16100,10 @@ struct TabItemView: View, Equatable {
             defaultValue: "Pinned workspace. Closing requires confirmation."
         )
         let closeButtonTooltip = workspaceSnapshot.isPinned ? protectedWorkspaceTooltip : KeyboardShortcutSettings.Action.closeWorkspace.tooltip(closeWorkspaceTooltip)
+        let ocmuxRefreshTooltip = String(
+            localized: "sidebar.ocmuxRefresh.tooltip",
+            defaultValue: "Refresh this workspace's ocmux server panes"
+        )
         let accessibilityHintText = String(localized: "sidebar.workspace.accessibilityHint", defaultValue: "Activate to focus this workspace. Drag to reorder, or use Move Up and Move Down actions.")
         let moveUpActionText = String(localized: "sidebar.workspace.moveUpAction", defaultValue: "Move Up")
         let moveDownActionText = String(localized: "sidebar.workspace.moveDownAction", defaultValue: "Move Down")
@@ -16221,6 +16236,23 @@ struct TabItemView: View, Equatable {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .alignmentGuide(.sidebarTitleFirstLineCenter) { _ in titleFirstLineCenter }
                         .layoutPriority(1)
+                }
+
+                if showOcmuxRefreshButton {
+                    Button(action: actions.refreshOcmuxPanes) {
+                        CmuxSystemSymbolImage(
+                            magnified: "arrow.clockwise",
+                            pointSize: scaledFontSize(9),
+                            weight: .medium,
+                            tint: activeSecondaryColor(0.7)
+                        )
+                        .frame(width: scaledCloseButtonHitSize, height: scaledCloseButtonHitSize, alignment: .center)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("sidebarWorkspace.ocmuxRefresh.\(workspaceId.uuidString)")
+                    .accessibilityLabel(ocmuxRefreshTooltip)
+                    .safeHelp(ocmuxRefreshTooltip)
                 }
 
                 if trailingStatusActive || canCloseWorkspace {

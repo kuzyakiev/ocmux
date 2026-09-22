@@ -995,6 +995,7 @@ final class WindowDragHandleHitTests: XCTestCase {
                 "titlebarControl.showNotifications",
                 "titlebarControl.newTab",
                 "titlebarControl.newWorkspaceMenu",
+                "titlebarControl.ocmuxRefreshAll",
                 "titlebarControl.focusHistoryBack",
                 "titlebarControl.focusHistoryForward",
             ],
