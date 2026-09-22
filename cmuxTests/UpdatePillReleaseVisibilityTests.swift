@@ -573,7 +573,7 @@ struct TitlebarControlsHoverPolicyTests {
                     TitlebarNewWorkspaceSplitButtonMetrics.primaryWidth(config: config)
                 case .some(.newWorkspaceMenu):
                     TitlebarNewWorkspaceSplitButtonMetrics.dropdownWidth(config: config)
-                case .some(.toggleSidebar), .some(.showNotifications), .some(.focusHistoryBack), .some(.focusHistoryForward), nil:
+                case .some(.toggleSidebar), .some(.showNotifications), .some(.ocmuxRefreshAll), .some(.focusHistoryBack), .some(.focusHistoryForward), nil:
                     config.buttonSize
                 }
                 checkEqual(
