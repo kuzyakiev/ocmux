@@ -55,6 +55,16 @@ opt-level = "z"
 panic = "abort"
 strip = "symbols"
 
+# Host-side units (build scripts, proc-macro dylibs and their deps) must not be
+# stripped. rustc 1.88's `-C strip=symbols` rewrites the Mach-O LINKEDIT in a way
+# that macOS 26+/27 dyld rejects ("mis-aligned LINKEDIT string pool"), so rustc
+# cannot dlopen the proc-macro dylib and reports it as
+# `error[E0463]: can't find crate for `tokio_macros``.
+# These units are never shipped, so leaving their symbols in costs nothing; the
+# released `cmux-diff-sidecar` binary is still stripped by the profile above.
+[profile.release.build-override]
+strip = "none"
+
 [lints.rust]
 unsafe_code = "deny"
 
