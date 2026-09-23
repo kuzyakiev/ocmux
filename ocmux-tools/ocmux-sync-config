@@ -153,11 +153,20 @@ def render_block(entries: list[dict]) -> str:
         if index and group != last_group:
             menu.append("separator")
         last_group = group
+        label = entry.get("label", alias)
+        # An inline `workspace` action opens a REAL workspace (its own sidebar
+        # row), not another tab in the focused pane. `setup` is the bootstrap
+        # command cmux sends to that workspace's first terminal, which is where
+        # the pane tags itself and hands over to the alias.
+        workspace: dict = {"name": label, "setup": f"ocmux-open {alias}"}
+        if entry.get("cwd"):
+            workspace["cwd"] = entry["cwd"]
+        if entry.get("color"):
+            workspace["color"] = entry["color"]
         actions[action_id] = {
-            "type": "command",
-            "command": f"ocmux-open {alias}",
-            "title": entry.get("label", alias),
-            "target": "newTabInCurrentPane",
+            "type": "workspace",
+            "workspace": workspace,
+            "title": label,
             "newWorkspaceMenu": True,
             "palette": True,
             "keywords": ["ocmux", "server", alias],
