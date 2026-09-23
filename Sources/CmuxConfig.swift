@@ -940,8 +940,11 @@ struct CmuxSurfaceTabBarButton: Codable, Sendable, Hashable, Identifiable {
     static let splitDown = actionReference(CmuxSurfaceTabBarBuiltInAction.splitDown.configID)
 
     static let mobileConnect = actionReference(CmuxSurfaceTabBarBuiltInAction.mobileConnect.configID)
+    static let ocmuxRefresh = actionReference(CmuxSurfaceTabBarBuiltInAction.ocmuxRefresh.configID)
 
+    /// ocmux: the refresh button leads so it shows without any cmux.json change.
     static let defaults: [CmuxSurfaceTabBarButton] = [
+        .ocmuxRefresh,
         .newTerminal,
         .newBrowser,
         .splitRight,
@@ -2064,6 +2067,7 @@ final class CmuxConfigStore: ObservableObject {
         let defaultResolvedButtons = (try? CmuxSurfaceTabBarButton.defaults.map {
             try $0.resolved(actions: resolvedActionLookup, codingPath: [])
         }) ?? [
+            .builtIn(.ocmuxRefresh),
             .builtIn(.newTerminal),
             .builtIn(.newBrowser),
             .builtIn(.splitRight),

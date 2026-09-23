@@ -14573,6 +14573,10 @@ extension Workspace: BonsplitDelegate {
                 }
             case .newSimulator:
                 _ = newSimulatorSurface(inPane: pane, focus: true)
+            case .ocmuxRefresh:
+                // Same seam as the sidebar row's refresh control; a workspace
+                // with no tagged panes makes this a no-op.
+                _ = AppDelegate.shared?.ocmuxRefreshTaggedSurfaces(workspaceId: id)
             case .newTerminal, .newBrowser, .splitRight, .splitDown:
                 break
             }

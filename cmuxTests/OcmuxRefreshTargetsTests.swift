@@ -122,3 +122,22 @@ struct OcmuxRefreshTargetsTests {
         )
     }
 }
+
+/// Pins the per-pane tab bar ⟳: it is a built-in custom action (not a Bonsplit
+/// action), and it leads the default buttons so it shows with no cmux.json.
+@Suite
+struct OcmuxRefreshTabBarButtonTests {
+    @Test("ocmux.refresh parses to the refresh built-in and routes through the custom path")
+    func refreshBuiltInParses() {
+        #expect(CmuxSurfaceTabBarBuiltInAction(configID: "ocmux.refresh") == .ocmuxRefresh)
+        #expect(CmuxSurfaceTabBarBuiltInAction(configID: "ocmuxRefresh") == .ocmuxRefresh)
+        #expect(CmuxSurfaceTabBarBuiltInAction.ocmuxRefresh.bonsplitAction == nil)
+        #expect(CmuxSurfaceTabBarBuiltInAction.ocmuxRefresh.defaultIcon == "arrow.clockwise")
+    }
+
+    @Test("The refresh button is first in the default surface tab bar buttons")
+    func refreshLeadsDefaults() {
+        #expect(CmuxSurfaceTabBarButton.defaults.first?.id == "ocmux.refresh")
+        #expect(CmuxSurfaceTabBarButton.defaults.count == 5)
+    }
+}

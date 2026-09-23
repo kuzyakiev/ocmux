@@ -17506,6 +17506,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
                 if workspace != nil { onExecuted?() }
                 return workspace != nil
             case .newSimulator: return performConfiguredNewSimulatorAction(context: context, onExecuted: onExecuted)
+            case .ocmuxRefresh:
+                guard let workspaceId = context.tabManager.selectedWorkspace?.id else { return false }
+                ocmuxRefreshTaggedSurfaces(workspaceId: workspaceId)
+                onExecuted?()
+                return true
             case .newTerminal:
                 context.tabManager.newSurface()
                 onExecuted?()

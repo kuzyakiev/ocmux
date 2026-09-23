@@ -13,6 +13,8 @@ enum CmuxSurfaceTabBarBuiltInAction: String, Codable, Sendable, CaseIterable, Ha
     case newSimulator = "cmux.newSimulator"
     case splitRight = "cmux.splitRight"
     case splitDown = "cmux.splitDown"
+    /// ocmux: respawn the ocmux-tagged surfaces of the pane's workspace.
+    case ocmuxRefresh = "ocmux.refresh"
 
     init?(configID: String) {
         switch configID {
@@ -41,6 +43,8 @@ enum CmuxSurfaceTabBarBuiltInAction: String, Codable, Sendable, CaseIterable, Ha
             self = .splitRight
         case "cmux.splitDown", "splitDown":
             self = .splitDown
+        case "ocmux.refresh", "ocmuxRefresh", "cmux.ocmuxRefresh":
+            self = .ocmuxRefresh
         default:
             return nil
         }
@@ -77,6 +81,8 @@ enum CmuxSurfaceTabBarBuiltInAction: String, Codable, Sendable, CaseIterable, Ha
             return (String(localized: "command.terminalSplitRight.title", defaultValue: "Split Right"), ["terminal", "split", "right"])
         case .splitDown:
             return (String(localized: "command.terminalSplitDown.title", defaultValue: "Split Down"), ["terminal", "split", "down"])
+        case .ocmuxRefresh:
+            return (String(localized: "ocmux.refreshSessions.title", defaultValue: "Refresh Sessions"), ["ocmux", "refresh", "reconnect", "ssh", "tmux", "respawn"])
         }
     }
 
@@ -104,12 +110,14 @@ enum CmuxSurfaceTabBarBuiltInAction: String, Codable, Sendable, CaseIterable, Ha
             return "square.split.2x1"
         case .splitDown:
             return "square.split.1x2"
+        case .ocmuxRefresh:
+            return "arrow.clockwise"
         }
     }
 
     var bonsplitAction: BonsplitConfiguration.SplitActionButton.Action? {
         switch self {
-        case .newWorkspace, .newAgentChat, .cloudVM, .newCloudWorkspace, .newCloudMachine, .mobileConnect, .newSimulator:
+        case .newWorkspace, .newAgentChat, .cloudVM, .newCloudWorkspace, .newCloudMachine, .mobileConnect, .newSimulator, .ocmuxRefresh:
             return nil
         case .newTerminal:
             return .newTerminal
@@ -138,7 +146,7 @@ extension CmuxSurfaceTabBarBuiltInAction {
         case .newBrowser: return .openBrowser
         case .splitRight: return .splitRight
         case .splitDown: return .splitDown
-        case .newAgentChat, .cloudVM, .mobileConnect, .newSimulator: return nil
+        case .newAgentChat, .cloudVM, .mobileConnect, .newSimulator, .ocmuxRefresh: return nil
         }
     }
 
