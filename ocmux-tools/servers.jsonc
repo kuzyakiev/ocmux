@@ -2,21 +2,21 @@
 // and for `ocmux-refresh`.
 //
 //   alias : the zsh alias/function to run (must resolve in an interactive zsh)
-//   label : what shows in the + menu
-//   group : used only to order/sepatate menu sections
+//   label : what shows in the + menu and as the workspace name in the sidebar
+//   group : used only to order/separate menu sections
 //
 // After editing, run:  ocmux-sync-config
-// then in cmux:        Cmd+Shift+,   (reload configuration)
+// then in ocmux:       Cmd+Shift+,   (reload configuration)
 [
-  { "alias": "h1t",    "label": "H1 · agent-1",  "group": "H1" },
-  { "alias": "a2h1t",  "label": "H1 · agent-2",  "group": "H1" },
-  { "alias": "poh1t",  "label": "H1 · popy",     "group": "H1" },
+  { "alias": "h1t",    "label": "H1 [Oleg]",  "group": "H1" },
+  { "alias": "a2h1t",  "label": "a2H1",       "group": "H1" },
+  { "alias": "poh1t",  "label": "poH1",       "group": "H1" },
 
-  { "alias": "h2t",    "label": "H2 · agent-1",  "group": "H2" },
-  { "alias": "a2h2t",  "label": "H2 · agent-2",  "group": "H2" },
-  { "alias": "poh2t",  "label": "H2 · popy",     "group": "H2" },
+  { "alias": "h2t",    "label": "H2 [Ludm]",  "group": "H2" },
+  { "alias": "a2h2t",  "label": "a2H2",       "group": "H2" },
+  { "alias": "poh2t",  "label": "poh2",       "group": "H2" },
 
-  { "alias": "h3t",    "label": "H3 · agent-1",  "group": "H3" },
-  { "alias": "a2h3t",  "label": "H3 · agent-2",  "group": "H3" },
-  { "alias": "poh3t",  "label": "H3 · popy",     "group": "H3" }
+  { "alias": "h3t",    "label": "a1H3 [Max]", "group": "H3" },
+  { "alias": "a2h3t",  "label": "a2H3",       "group": "H3" },
+  { "alias": "poh3t",  "label": "poh3",       "group": "H3" }
 ]
