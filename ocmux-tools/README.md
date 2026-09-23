@@ -20,10 +20,25 @@ alias into a shell is invisible to the app.
 own per-surface resume binding, then hands the pane to the alias:
 
     cmux surface resume set --surface "$CMUX_SURFACE_ID" --shell "ocmux-open h1t"
-    exec zsh -ic "h1t"
+    zsh -ic "h1t"
+    exec ${SHELL:-/bin/zsh} -l
 
 The tag is `ocmux-open <alias>` — literally the command that produced it, so
 replaying it re-tags the pane. Self-reproducing across any number of refreshes.
+
+The alias deliberately does **not** run under `exec`, and the trailing login
+shell is load-bearing. cmux closes any surface whose root process exits after
+more than ~250ms of runtime (`TerminalChildExitPolicy`), and a closed surface
+takes its resume binding with it — leaving the ⟳ controls nothing to respawn.
+
+A pane opened from the "+" menu survives a dropped `ssh` anyway, because
+`CmuxConfigExecutor` types the alias into an interactive shell as `initialInput`
+rather than launching it as the pane's command, so a shell is already sitting
+underneath. A *refreshed* pane is different: `surface.respawn` runs
+`ocmux-open <alias>` as the pane's root process. Without the fallback shell the
+first dropped connection after a refresh would also be the last one refresh
+could repair — measured: the surface disappeared from `system.tree` entirely,
+and a second ⟳ had nothing to act on.
 
 `ocmux-refresh` then enumerates surfaces, keeps the ones whose resume binding
 starts with `ocmux-open `, and replays each. Panes with no tag — plain shells,

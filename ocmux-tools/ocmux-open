@@ -38,6 +38,19 @@ if [[ -n ${CMUX_SURFACE_ID:-} ]]; then
     || print -u2 "ocmux-open: warning: could not tag surface (refresh-all will skip this pane)"
 fi
 
-# Hand the pane to the alias. `-i` so ~/.zshrc aliases/functions resolve; exec so
-# no extra shell layer sits between cmux and ssh.
-exec zsh -ic "${alias_name}"
+# Hand the pane to the alias. `-i` so ~/.zshrc aliases/functions resolve.
+#
+# Deliberately NOT `exec`: the pane must outlive the alias. When the ssh behind
+# the alias dies, cmux's child-exit policy closes any surface whose root process
+# exits after more than ~250ms of runtime (TerminalChildExitPolicy), so an
+# exec'd alias takes the whole pane down with it — and a closed surface carries
+# no resume binding, so the ⟳ refresh controls have nothing left to respawn.
+#
+# That matters most for a *refreshed* pane. A pane opened from the "+" menu gets
+# the alias typed into an interactive shell (CmuxConfigExecutor sends it as
+# initialInput), so a shell already sits underneath and the drop is survivable.
+# A refreshed pane instead runs `ocmux-open <alias>` as its root process, so
+# without the fallback shell below the first dropped connection would be the
+# last one refresh could repair.
+zsh -ic "${alias_name}"
+exec ${SHELL:-/bin/zsh} -l

@@ -2516,6 +2516,7 @@
 		645645000000000000000002 /* NumberedShortcutSwapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 645645000000000000000001 /* NumberedShortcutSwapTests.swift */; };
 		7A0CE1000000000000000714 /* NWConnection+Async.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0CE1000000000000000713 /* NWConnection+Async.swift */; };
 		0C111F0D0C111F0D0C111F0D /* OcmuxRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C111F0E0C111F0E0C111F0E /* OcmuxRefresh.swift */; };
+		A1122401A1B2C3D4E5F60719 /* OcmuxRefreshControlsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1122402A1B2C3D4E5F60719 /* OcmuxRefreshControlsUITests.swift */; };
 		67269E37F4CAC4E25ECBF57D /* OcmuxRefreshTargetsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1791B500D38B79CC95A264F7 /* OcmuxRefreshTargetsTests.swift */; };
 		0A1107110000000000000001 /* OllamaAgentDetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1107110000000000000002 /* OllamaAgentDetectionTests.swift */; };
 		C67540090000000000000001 /* OmnibarAddressButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C67540090000000000000002 /* OmnibarAddressButtonStyle.swift */; };
@@ -6644,6 +6645,7 @@
 		645645000000000000000001 /* NumberedShortcutSwapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumberedShortcutSwapTests.swift; sourceTree = "<group>"; };
 		7A0CE1000000000000000713 /* NWConnection+Async.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "NWConnection+Async.swift"; sourceTree = "<group>"; };
 		0C111F0E0C111F0E0C111F0E /* OcmuxRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OcmuxRefresh.swift; sourceTree = "<group>"; };
+		A1122402A1B2C3D4E5F60719 /* OcmuxRefreshControlsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OcmuxRefreshControlsUITests.swift; sourceTree = "<group>"; };
 		1791B500D38B79CC95A264F7 /* OcmuxRefreshTargetsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OcmuxRefreshTargetsTests.swift"; sourceTree = "<group>"; };
 		0A1107110000000000000002 /* OllamaAgentDetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaAgentDetectionTests.swift; sourceTree = "<group>"; };
 		C67540090000000000000002 /* OmnibarAddressButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Panels/OmnibarAddressButtonStyle.swift; sourceTree = "<group>"; };
@@ -8539,6 +8541,7 @@
 				B8F266276A1A3D9A45BD840F /* DisplayResolutionRegressionUITests.swift */,
 				F0F0A002A1B2C3D4E5F60718 /* WorkspaceSidebarScrollUITests.swift */,
 				A1122302A1B2C3D4E5F60718 /* NewWorkspaceButtonHitAreaUITests.swift */,
+				A1122402A1B2C3D4E5F60719 /* OcmuxRefreshControlsUITests.swift */,
 				C2577001A1B2C3D4E5F60718 /* TerminalCmdClickUITests.swift */,
 				B82090010000000000000002 /* TCCUsageDescriptionUITests.swift */,
 				B9000131A1B2C3D4E5F60719 /* SidebarPullRequestInteractivityUITests.swift */,
@@ -16142,6 +16145,7 @@
 				8B1B2AB6EC6ACDB2CD39A9BB /* NewBrowserWorkspaceShortcutUITests.swift in Sources */,
 				C0DE1223900000000000000B /* NewMachineSheetKindUITests.swift in Sources */,
 				A1122301A1B2C3D4E5F60718 /* NewWorkspaceButtonHitAreaUITests.swift in Sources */,
+				A1122401A1B2C3D4E5F60719 /* OcmuxRefreshControlsUITests.swift in Sources */,
 				0857775ACBD4B3C507EBB232 /* RemoteTmuxSizingUITests+Content.swift in Sources */,
 				703CAAF15AF4CA4399BDD26B /* RemoteTmuxSizingUITests+Lab.swift in Sources */,
 				08577759CBD4B3C507EBB231 /* RemoteTmuxSizingUITests+Oracle.swift in Sources */,
